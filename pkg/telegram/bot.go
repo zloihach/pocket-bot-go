@@ -46,4 +46,4 @@ func (b *Bot) initUpdatesChannel() tgbotapi.UpdatesChannel {
 	return b.bot.GetUpdatesChan(u)
 }
 
-//https://www.youtube.com/watch?v=fwkHaJkjO04&list=PLbTTxxr-hMmzSGTsO5mdYLrvKY-RZFanp&index=5
+//https://www.youtube.com/watch?v=wdB42QM857Q&list=PLbTTxxr-hMmzSGTsO5mdYLrvKY-RZFanp&index=7
