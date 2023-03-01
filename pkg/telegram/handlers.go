@@ -1,14 +1,16 @@
 package telegram
 
 import (
-	"fmt"
+	"context"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"log"
+	"github.com/zhashkevych/go-pocket-sdk"
+	"net/url"
 )
 
 const (
-	commandStart       = "start"
-	replyStartTemplate = "Hello, I am Pocket Bot. For start using me, please, authorize me in Pocket. For authorize click to this link:\n%s"
+	commandStart           = "start"
+	replyStartTemplate     = "Hello, I am Pocket Bot. For start using me, please, authorize me in Pocket. For authorize click to this link:\n%s"
+	replyAlreadyAuthorized = "You are already authorized in the bot. Please send me the link and I'll save it"
 )
 
 func (b *Bot) handleCommand(message *tgbotapi.Message) error {
@@ -20,24 +22,36 @@ func (b *Bot) handleCommand(message *tgbotapi.Message) error {
 	}
 }
 
-func (b *Bot) handleMessage(message *tgbotapi.Message) {
-	log.Printf("[%s] %s", message.From.UserName, message.Text)
+func (b *Bot) handleMessage(message *tgbotapi.Message) error {
+	_, err := url.ParseRequestURI(message.Text)
 
-	msg := tgbotapi.NewMessage(message.Chat.ID, message.Text)
-
-	_, err := b.bot.Send(msg)
 	if err != nil {
-		log.Printf("error while sending message: %v", err)
+		return errInvalidURL
 	}
+
+	accessToken, err := b.getAccessToken(message.Chat.ID)
+	if err != nil {
+		return errUnauthorized
+	}
+
+	if err := b.pocketClient.Add(context.Background(), pocket.AddInput{
+		AccessToken: accessToken,
+		URL:         message.Text,
+	}); err != nil {
+		return errUnableToSave
+	}
+
+	msg := tgbotapi.NewMessage(message.Chat.ID, "Url has been saved successful")
+	_, err = b.bot.Send(msg)
+	return err
 }
 
 func (b *Bot) handleStartCommand(message *tgbotapi.Message) error {
-	authLink, err := b.generateAuthorizationLink(message.Chat.ID)
+	_, err := b.getAccessToken(message.Chat.ID)
 	if err != nil {
-		return err
+		return b.initAuthorizationProcess(message)
 	}
-	msg := tgbotapi.NewMessage(message.Chat.ID,
-		fmt.Sprintf(replyStartTemplate, authLink))
+	msg := tgbotapi.NewMessage(message.Chat.ID, replyAlreadyAuthorized)
 	_, err = b.bot.Send(msg)
 	return err
 }
